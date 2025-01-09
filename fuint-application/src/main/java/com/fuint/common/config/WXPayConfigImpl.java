@@ -4,12 +4,12 @@ import com.fuint.common.service.StoreService;
 import com.fuint.framework.exception.BusinessCheckException;
 import com.fuint.repository.model.MtStore;
 import com.fuint.utils.StringUtil;
-import com.github.wxpay.sdk.WXPayConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -22,7 +22,9 @@ import java.io.InputStream;
  * CopyRight https://www.fuint.cn
  */
 @Configuration
-public class WXPayConfigImpl implements WXPayConfig {
+//public class WXPayConfigImpl implements WXPayConfig {
+
+public class WXPayConfigImpl {
 
     private static final Logger logger = LoggerFactory.getLogger(WXPayConfigImpl.class);
 
@@ -57,22 +59,18 @@ public class WXPayConfigImpl implements WXPayConfig {
        return instance;
     }
 
-    @Override
     public String getAppID() {
         return appId;
     }
 
-    @Override
     public String getMchID() {
         return mchId;
     }
 
-    @Override
     public String getKey() {
         return key;
     }
 
-    @Override
     public InputStream getCertStream() {
         try {
             File file = new File(certPath);
@@ -83,12 +81,10 @@ public class WXPayConfigImpl implements WXPayConfig {
         return null;
     }
 
-    @Override
     public int getHttpConnectTimeoutMs() {
         return 2000;
     }
 
-    @Override
     public int getHttpReadTimeoutMs() {
         return 10000;
     }

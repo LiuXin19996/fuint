@@ -71,24 +71,24 @@ public class ClientMerchantController extends BaseController {
         // 收款额
         Date beginTime = DateUtil.getDayBegin();
         Date endTime = DateUtil.getDayEnd();
-        BigDecimal payMoney = orderService.getPayMoney(confirmInfo.getStoreId(), beginTime, endTime);
-        outParams.put("payMoney", payMoney);
+//        BigDecimal payMoney = orderService.getPayMoney(confirmInfo.getStoreId(), beginTime, endTime);
+        outParams.put("payMoney", 0);
 
         // 总会员数
-        Long userCount = memberService.getUserCount(confirmInfo.getStoreId());
-        outParams.put("userCount", userCount);
+//        Long userCount = memberService.getUserCount(confirmInfo.getStoreId());
+        outParams.put("userCount", 0);
 
         // 今日订单数
-        BigDecimal orderCount = orderService.getOrderCount(confirmInfo.getStoreId(), beginTime, endTime);
-        outParams.put("orderCount", orderCount);
+//        BigDecimal orderCount = orderService.getOrderCount(confirmInfo.getStoreId(), beginTime, endTime);
+        outParams.put("orderCount", 0);
 
         // 核销券数
-        Long confirmCount = confirmLogService.getConfirmCount(confirmInfo.getStoreId(), beginTime, endTime);
-        outParams.put("couponCount", confirmCount);
+//        Long confirmCount = confirmLogService.getConfirmCount(confirmInfo.getStoreId(), beginTime, endTime);
+        outParams.put("couponCount", 0);
 
         // 今日活跃会员数
-        Long todayUser = memberService.getActiveUserCount(confirmInfo.getStoreId(), beginTime, endTime);
-        outParams.put("todayUser", todayUser);
+//        Long todayUser = memberService.getActiveUserCount(confirmInfo.getStoreId(), beginTime, endTime);
+        outParams.put("todayUser", 0);
 
         return getSuccessResult(outParams);
     }
