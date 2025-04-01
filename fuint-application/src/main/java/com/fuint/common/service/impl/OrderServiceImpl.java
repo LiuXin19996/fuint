@@ -8,6 +8,7 @@ import com.fuint.common.Constants;
 import com.fuint.common.dto.*;
 import com.fuint.common.enums.*;
 import com.fuint.common.param.OrderListParam;
+import com.fuint.common.param.RechargeParam;
 import com.fuint.common.param.SettlementParam;
 import com.fuint.common.service.*;
 import com.fuint.common.util.*;
@@ -197,7 +198,11 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
         String storeIds = orderListParam.getStoreIds() == null ? "" : orderListParam.getStoreIds();
         String startTime = orderListParam.getStartTime() == null ? "" : orderListParam.getStartTime();
         String endTime = orderListParam.getEndTime() == null ? "" : orderListParam.getEndTime();
+        String keyword = orderListParam.getKeyword() == null ? "" : orderListParam.getKeyword();
         List<String> payType = orderListParam.getPayType();
+
+        LambdaQueryWrapper<MtOrder> lambdaQueryWrapper = Wrappers.lambdaQuery();
+        lambdaQueryWrapper.ne(MtOrder::getStatus, OrderStatusEnum.DELETED.getKey());
 
         if (dataType.equals("toPay")) {
             status = OrderStatusEnum.CREATED.getKey(); // 待支付
@@ -206,11 +211,19 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
             payStatus = PayStatusEnum.SUCCESS.getKey(); // 已支付
         } else if(dataType.equals("cancel")) {
             status = OrderStatusEnum.CANCEL.getKey();  // 已取消
+        } else if(dataType.equals("todo")) {
+            // 待核销
+            payStatus = PayStatusEnum.SUCCESS.getKey();
+            lambdaQueryWrapper.eq(MtOrder::getConfirmStatus, YesOrNoEnum.NO.getKey());
+            lambdaQueryWrapper.eq(MtOrder::getType, OrderTypeEnum.GOOGS.getKey());
+            lambdaQueryWrapper.eq(MtOrder::getOrderMode, OrderModeEnum.ONESELF.getKey());
+        } else if(dataType.equals("confirm")) {
+            // 已核销
+            payStatus = PayStatusEnum.SUCCESS.getKey();
+            lambdaQueryWrapper.eq(MtOrder::getType, OrderTypeEnum.GOOGS.getKey());
+            lambdaQueryWrapper.eq(MtOrder::getConfirmStatus, YesOrNoEnum.YES.getKey());
+            lambdaQueryWrapper.eq(MtOrder::getOrderMode, OrderModeEnum.ONESELF.getKey());
         }
-
-        Page<MtOpenGift> pageHelper = PageHelper.startPage(pageNumber, pageSize);
-        LambdaQueryWrapper<MtOrder> lambdaQueryWrapper = Wrappers.lambdaQuery();
-        lambdaQueryWrapper.ne(MtOrder::getStatus, OrderStatusEnum.DELETED.getKey());
 
         if (StringUtil.isNotEmpty(orderSn)) {
             lambdaQueryWrapper.eq(MtOrder::getOrderSn, orderSn);
@@ -224,10 +237,21 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
         if (StringUtil.isNotEmpty(settleStatus)) {
             lambdaQueryWrapper.eq(MtOrder::getSettleStatus, settleStatus);
         }
+        if (StringUtil.isNotEmpty(keyword)) {
+            MtUser userInfo = memberService.queryMemberByMobile(merchantId, keyword);
+            if (userInfo != null) {
+                lambdaQueryWrapper.and(wq -> wq
+                        .like(MtOrder::getOrderSn, keyword)
+                        .or()
+                        .eq(MtOrder::getUserId, userInfo.getId().toString()));
+            } else {
+                lambdaQueryWrapper.like(MtOrder::getOrderSn, keyword);
+            }
+        }
         if (StringUtil.isNotEmpty(mobile)) {
             MtUser userInfo = memberService.queryMemberByMobile(merchantId, mobile);
             if (userInfo != null) {
-                userId = userInfo.getId() + "";
+                userId = userInfo.getId().toString();
             } else {
                 userId = "0";
             }
@@ -269,6 +293,7 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
             lambdaQueryWrapper.in(MtOrder::getPayType, payType);
         }
         lambdaQueryWrapper.orderByDesc(MtOrder::getId);
+        Page<MtOpenGift> pageHelper = PageHelper.startPage(pageNumber, pageSize);
         List<MtOrder> orderList = mtOrderMapper.selectList(lambdaQueryWrapper);
 
         List<UserOrderDto> dataList = new ArrayList<>();
@@ -349,6 +374,7 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
         mtOrder.setUpdateTime(new Date());
         mtOrder.setDeliveryFee(orderDto.getDeliveryFee() == null ? new BigDecimal(0) : orderDto.getDeliveryFee());
         mtOrder.setSettleStatus(SettleStatusEnum.WAIT.getKey());
+        mtOrder.setConfirmStatus(YesOrNoEnum.NO.getKey());
 
         if (mtOrder.getId() == null || mtOrder.getId() <= 0) {
             mtOrder.setCreateTime(new Date());
@@ -981,6 +1007,8 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
             if (payType.equals(PayTypeEnum.CASH.getKey()) && StringUtil.isNotEmpty(operator)) {
                 // 收银台现金支付，更新为已支付
                 setOrderPayed(orderInfo.getId(), null);
+            } else  if (payType.equals(PayTypeEnum.STORE.getKey())) {
+                // 门店支付，不做任何操作
             } else if(payType.equals(PayTypeEnum.BALANCE.getKey())) {
                 // 余额支付
                 MtBalance balance = new MtBalance();
@@ -1017,13 +1045,12 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
         Map<String, Object> outParams = new HashMap();
         outParams.put("isCreated", true);
         outParams.put("orderInfo", orderInfo);
+        outParams.put("payType", payType);
 
         if (paymentInfo != null) {
             outParams.put("payment", paymentInfo.getData());
-            outParams.put("payType", payType);
         } else {
             outParams.put("payment", null);
-            outParams.put("payType", "BALANCE");
         }
 
         // 1分钟后发送小程序订阅消息
@@ -1322,6 +1349,18 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
 
         if (null != orderDto.getRemark()) {
             mtOrder.setRemark(orderDto.getRemark());
+        }
+
+        if (null != orderDto.getConfirmStatus()) {
+            mtOrder.setConfirmStatus(orderDto.getConfirmStatus());
+        }
+
+        if (null != orderDto.getConfirmRemark()) {
+            mtOrder.setConfirmRemark(orderDto.getConfirmRemark());
+        }
+
+        if (null != orderDto.getConfirmTime()) {
+            mtOrder.setConfirmTime(orderDto.getConfirmTime());
         }
 
         mtOrderMapper.updateById(mtOrder);
@@ -1920,6 +1959,7 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
         BigDecimal totalCanUsePointAmount = new BigDecimal("0");
         BigDecimal memberDiscount = new BigDecimal("0");
         BigDecimal percent = new BigDecimal("0");
+        Integer storeId = 0;
         if (cartList.size() > 0) {
             // 会员折扣
             MtUserGrade userGrade = userGradeService.queryUserGradeById(userInfo.getMerchantId(), userInfo.getGradeId() != null ? Integer.parseInt(userInfo.getGradeId()) : 1, userId);
@@ -1930,10 +1970,20 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
                 }
             }
             for (MtCart cart : cartList) {
+                if (storeId <= 0 && cart.getStoreId() != null) {
+                    storeId = cart.getStoreId();
+                }
                 // 购物车商品信息
                 MtGoods mtGoodsInfo = goodsService.queryGoodsById(cart.getGoodsId());
                 if (mtGoodsInfo == null || !mtGoodsInfo.getStatus().equals(StatusEnum.ENABLED.getKey())) {
                     continue;
+                }
+                // 取对应sku的价格
+                if (cart.getSkuId() != null && cart.getSkuId() > 0) {
+                    MtGoodsSku mtGoodsSku = mtGoodsSkuMapper.selectById(cart.getSkuId());
+                    if (mtGoodsSku != null && mtGoodsSku.getPrice().compareTo(new BigDecimal("0")) > 0) {
+                        mtGoodsInfo.setPrice(mtGoodsSku.getPrice());
+                    }
                 }
                 // 会员支付折扣
                 boolean isDiscount = mtGoodsInfo.getIsMemberDiscount().equals(YesOrNoEnum.YES.getKey()) ? true : false;
@@ -2018,6 +2068,13 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
                             if (!platform.equals(PlatformTypeEnum.PC.getCode())) {
                                 continue;
                             }
+                        }
+                    }
+                    // 判断在当前门店是否适用
+                    if (StringUtil.isNotEmpty(couponInfo.getStoreIds())) {
+                        String[] storeIds = couponInfo.getStoreIds().split(",");
+                        if (storeIds.length > 0 && storeId != null && !Arrays.asList(storeIds).contains(storeId.toString())) {
+                            continue;
                         }
                     }
                     boolean isEffective = couponService.isCouponEffective(couponInfo, userCoupon);
@@ -2200,5 +2257,81 @@ public class OrderServiceImpl extends ServiceImpl<MtOrderMapper, MtOrder> implem
     @Override
     public List<MtOrder> getTobeCommissionOrderList(String dateTime) {
         return mtOrderMapper.getTobeCommissionOrderList(dateTime);
+    }
+
+    /**
+     * 提交充值订单
+     *
+     * @param request HttpServletRequest对象
+     * @param rechargeParam 充值参数
+     * @return
+     * */
+    @Override
+    public MtOrder doRecharge(HttpServletRequest request, RechargeParam rechargeParam) throws BusinessCheckException {
+        Integer storeId = request.getHeader("storeId") == null ? 0 : Integer.parseInt(request.getHeader("storeId"));
+        String platform = request.getHeader("platform") == null ? "" : request.getHeader("platform");
+        String merchantNo = request.getHeader("merchantNo") == null ? "" : request.getHeader("merchantNo");
+
+        String rechargeAmount = rechargeParam.getRechargeAmount() == null ? "" : rechargeParam.getRechargeAmount();
+        String customAmount = rechargeParam.getCustomAmount() == null ? "" : rechargeParam.getCustomAmount();
+        if (StringUtil.isEmpty(rechargeAmount) && StringUtil.isEmpty(customAmount)) {
+            throw new BusinessCheckException("请确认充值金额");
+        }
+        if (rechargeParam.getMemberId() == null || rechargeParam.getMemberId() < 1) {
+            throw new BusinessCheckException("请确认充值会员信息");
+        }
+
+        Integer merchantId = merchantService.getMerchantId(merchantNo);
+
+        // 充值赠送金额
+        String ruleParam = "";
+        MtSetting mtSetting = settingService.querySettingByName(merchantId, SettingTypeEnum.BALANCE.getKey(), BalanceSettingEnum.RECHARGE_RULE.getKey());
+        if (StringUtil.isNotEmpty(rechargeAmount) && mtSetting != null) {
+            if (mtSetting.getValue() != null && StringUtil.isNotEmpty(mtSetting.getValue())) {
+                String rules[] = mtSetting.getValue().split(",");
+                for (String rule : rules) {
+                    String amountArr[] = rule.split("_");
+                    if (amountArr.length == 2) {
+                        if (amountArr[0].equals(rechargeAmount)) {
+                            ruleParam = rule;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 自定义充值没有赠送金额
+        if (StringUtil.isNotEmpty(customAmount) && Integer.parseInt(customAmount) > 0 && (StringUtil.isEmpty(rechargeAmount) || Integer.parseInt(rechargeAmount) <= 0)) {
+            rechargeAmount = customAmount;
+            ruleParam = customAmount + "_0";
+        }
+
+        if (StringUtil.isEmpty(ruleParam)) {
+            ruleParam = rechargeAmount + "_0";
+        }
+
+        BigDecimal amount = new BigDecimal(rechargeAmount);
+        if (amount.compareTo(new BigDecimal("0")) <= 0) {
+            throw new BusinessCheckException("请确认充值金额");
+        }
+
+        OrderDto orderDto = new OrderDto();
+        orderDto.setType(OrderTypeEnum.RECHARGE.getKey());
+        orderDto.setUserId(rechargeParam.getMemberId());
+        orderDto.setStoreId(storeId);
+        orderDto.setAmount(amount);
+        orderDto.setUsePoint(0);
+        orderDto.setRemark("会员充值");
+        orderDto.setParam(ruleParam);
+        orderDto.setStatus(OrderStatusEnum.CREATED.getKey());
+        orderDto.setPayStatus(PayStatusEnum.WAIT.getKey());
+        orderDto.setPointAmount(new BigDecimal("0"));
+        orderDto.setOrderMode("");
+        orderDto.setCouponId(0);
+        orderDto.setPlatform(platform);
+        orderDto.setMerchantId(merchantId);
+
+        return saveOrder(orderDto);
     }
 }

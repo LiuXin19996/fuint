@@ -205,6 +205,15 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
         if (StringUtils.isNotBlank(id)) {
             wrapper.eq(MtUser::getId, id);
         }
+        String keyword = paginationRequest.getSearchParams().get("keyword") == null ? "" : paginationRequest.getSearchParams().get("keyword").toString();
+        if (StringUtils.isNotBlank(keyword)) {
+            wrapper.and(wq -> wq
+                    .eq(MtUser::getMobile, keyword)
+                    .or()
+                    .eq(MtUser::getUserNo, keyword)
+                    .or()
+                    .eq(MtUser::getName, keyword));
+        }
         String mobile = paginationRequest.getSearchParams().get("mobile") == null ? "" : paginationRequest.getSearchParams().get("mobile").toString();
         if (StringUtils.isNotBlank(mobile)) {
             wrapper.like(MtUser::getMobile, mobile);
@@ -287,13 +296,9 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
         List<MtUser> userList = mtUserMapper.selectList(wrapper);
         List<UserDto> dataList = new ArrayList<>();
         for (MtUser mtUser : userList) {
-            String phone = mtUser.getMobile();
             UserDto userDto = new UserDto();
             BeanUtils.copyProperties(mtUser, userDto);
-            // 隐藏手机号中间四位
-            if (phone != null && StringUtil.isNotEmpty(phone) && phone.length() == 11) {
-                userDto.setMobile(phone.substring(0, 3) + "****" + phone.substring(7));
-            }
+            userDto.setMobile(CommonUtil.hidePhone(mtUser.getMobile()));
             if (userDto.getStoreId() != null && userDto.getStoreId() > 0) {
                 MtStore mtStore = storeService.queryStoreById(userDto.getStoreId());
                 if (mtStore != null) {
@@ -454,6 +459,7 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
         }
         String mobile = mtUser.getMobile();
         if (PhoneFormatCheckUtils.isChinaPhoneLegal(mobile)) {
+            mtUserMapper.resetMobile(mobile, mtUser.getId());
             mtUser.setMobile(mobile);
         }
 
@@ -664,9 +670,10 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
         String mobile = StringUtil.isNotEmpty(userInfo.getString("phone")) ? userInfo.getString("phone") : "";
         String shareId = StringUtil.isNotEmpty(userInfo.getString("shareId")) ? userInfo.getString("shareId") : "0";
         String source = StringUtil.isNotEmpty(userInfo.getString("source")) ? userInfo.getString("source") : MemberSourceEnum.WECHAT_LOGIN.getKey();
+        String platform = StringUtil.isNotEmpty(userInfo.getString("platform")) ? userInfo.getString("platform") : "";
 
         // 需要手机号登录
-        if (StringUtil.isEmpty(mobile) && user == null) {
+        if (StringUtil.isEmpty(mobile) && user == null && !platform.equals(PlatformTypeEnum.H5.getCode())) {
             MtSetting mtSetting = settingService.querySettingByName(merchantId, SettingTypeEnum.USER.getKey(), UserSettingEnum.LOGIN_NEED_PHONE.getKey());
             if (mtSetting != null) {
                 if (mtSetting.getValue().equals(YesOrNoEnum.TRUE.getKey())) {
@@ -780,8 +787,7 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
      */
     @Override
     public MtUserGrade queryMemberGradeByGradeId(Integer id) {
-        MtUserGrade gradeInfo = mtUserGradeMapper.selectById(id);
-        return gradeInfo;
+        return mtUserGradeMapper.selectById(id);
     }
 
     /**
@@ -822,8 +828,7 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
         if (params == null) {
             params = new HashMap<>();
         }
-        List<MtUserGrade> result = mtUserGradeMapper.selectByMap(params);
-        return result;
+        return mtUserGradeMapper.selectByMap(params);
     }
 
     /**
@@ -835,7 +840,7 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
      * */
     @Override
     public Long getUserCount(Integer merchantId, Integer storeId) {
-        if (storeId > 0) {
+        if (storeId != null && storeId > 0) {
             return mtUserMapper.getStoreUserCount(storeId);
         } else {
             return mtUserMapper.getUserCount(merchantId);
@@ -853,7 +858,7 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
      * */
     @Override
     public Long getUserCount(Integer merchantId, Integer storeId, Date beginTime, Date endTime) {
-        if (storeId > 0) {
+        if (storeId != null && storeId > 0) {
             return mtUserMapper.getStoreUserCountByTime(storeId, beginTime, endTime);
         } else {
             return mtUserMapper.getUserCountByTime(merchantId, beginTime, endTime);
@@ -871,7 +876,7 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
      * */
     @Override
     public Long getActiveUserCount(Integer merchantId, Integer storeId, Date beginTime, Date endTime) {
-        if (storeId > 0) {
+        if (storeId != null && storeId > 0) {
             return mtUserActionMapper.getStoreActiveUserCount(storeId, beginTime, endTime);
         } else {
             return mtUserActionMapper.getActiveUserCount(merchantId, beginTime, endTime);
@@ -956,11 +961,7 @@ public class MemberServiceImpl extends ServiceImpl<MtUserMapper, MtUser> impleme
                  memberDto.setId(mtUser.getId());
                  memberDto.setName(mtUser.getName());
                  memberDto.setUserNo(mtUser.getUserNo());
-                 // 隐藏手机号中间四位
-                 String phone = mtUser.getMobile();
-                 if (phone != null && StringUtil.isNotEmpty(phone) && phone.length() == 11) {
-                     memberDto.setMobile(phone.substring(0, 3) + "****" + phone.substring(7));
-                 }
+                 memberDto.setMobile(CommonUtil.hidePhone(mtUser.getMobile()));
                  dataList.add(memberDto);
             }
         }

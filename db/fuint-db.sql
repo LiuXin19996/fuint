@@ -467,7 +467,7 @@ DROP TABLE IF EXISTS `mt_goods`;
 
 CREATE TABLE `mt_goods` (
   `ID` int NOT NULL AUTO_INCREMENT COMMENT '自增ID',
-  `TYPE` varchar(30) DEFAULT 'product' COMMENT '商品类别',
+  `TYPE` varchar(30) DEFAULT 'goods' COMMENT '商品类别',
   `MERCHANT_ID` int DEFAULT '0' COMMENT '所属商户ID',
   `STORE_ID` int DEFAULT '0' COMMENT '所属店铺ID',
   `NAME` varchar(100) DEFAULT '' COMMENT '商品名称',
@@ -629,38 +629,41 @@ CREATE TABLE `mt_open_gift_item` (
 DROP TABLE IF EXISTS `mt_order`;
 
 CREATE TABLE `mt_order` (
-    `ID` int NOT NULL AUTO_INCREMENT COMMENT '自增ID',
-    `TYPE` varchar(30) DEFAULT NULL COMMENT '订单类型',
-    `PAY_TYPE` varchar(30) DEFAULT 'JSAPI' COMMENT '支付类型',
-    `ORDER_MODE` varchar(30) DEFAULT 'express' COMMENT '订单模式',
-    `PLATFORM` varchar(30) DEFAULT '' COMMENT '平台',
-    `ORDER_SN` varchar(32) NOT NULL DEFAULT '' COMMENT '订单号',
-    `COUPON_ID` int DEFAULT '0' COMMENT '卡券ID',
-    `MERCHANT_ID` int DEFAULT '0' COMMENT '所属商户ID',
-    `STORE_ID` int DEFAULT '0' COMMENT '所属店铺ID',
-    `USER_ID` int NOT NULL DEFAULT '0' COMMENT '用户ID',
-    `VERIFY_CODE` varchar(10) DEFAULT '' COMMENT '核销验证码',
-    `IS_VISITOR` char(1) DEFAULT 'N' COMMENT '是否游客',
-    `AMOUNT` decimal(10,2) DEFAULT '0.00' COMMENT '订单金额',
-    `PAY_AMOUNT` decimal(10,2) DEFAULT '0.00' COMMENT '支付金额',
-    `USE_POINT` int DEFAULT '0' COMMENT '使用积分数量',
-    `POINT_AMOUNT` decimal(10,2) DEFAULT '0.00' COMMENT '积分金额',
-    `DISCOUNT` decimal(10,2) DEFAULT '0.00' COMMENT '折扣金额',
-    `DELIVERY_FEE` decimal(10,2) DEFAULT '0.00' COMMENT '配送费用',
-    `PARAM` varchar(500) DEFAULT '' COMMENT '订单参数',
-    `EXPRESS_INFO` varchar(500) DEFAULT '' COMMENT '物流信息',
-    `REMARK` varchar(500) DEFAULT '' COMMENT '用户备注',
-    `CREATE_TIME` datetime DEFAULT NULL COMMENT '创建时间',
-    `UPDATE_TIME` datetime DEFAULT NULL COMMENT '更新时间',
-    `STATUS` char(1) DEFAULT 'A' COMMENT '订单状态',
-    `PAY_TIME` datetime DEFAULT NULL COMMENT '支付时间',
-    `PAY_STATUS` char(1) DEFAULT '' COMMENT '支付状态',
-    `SETTLE_STATUS` char(1) DEFAULT 'A' COMMENT '结算状态',
-    `STAFF_ID` int DEFAULT '0' COMMENT '操作员工',
-    `COMMISSION_USER_ID` int DEFAULT '0' COMMENT '分佣用户ID',
-    `COMMISSION_STATUS` char(1) DEFAULT 'A' COMMENT '分佣提成计算状态',
-    `OPERATOR` varchar(30) DEFAULT '' COMMENT '最后操作人',
-    PRIMARY KEY (`ID`)
+  `ID` int NOT NULL AUTO_INCREMENT COMMENT '自增ID',
+  `TYPE` varchar(30) DEFAULT NULL COMMENT '订单类型',
+  `PAY_TYPE` varchar(30) DEFAULT 'JSAPI' COMMENT '支付类型',
+  `ORDER_MODE` varchar(30) DEFAULT 'express' COMMENT '订单模式',
+  `PLATFORM` varchar(30) DEFAULT '' COMMENT '平台',
+  `ORDER_SN` varchar(32) NOT NULL DEFAULT '' COMMENT '订单号',
+  `COUPON_ID` int DEFAULT '0' COMMENT '卡券ID',
+  `MERCHANT_ID` int DEFAULT '0' COMMENT '所属商户ID',
+  `STORE_ID` int DEFAULT '0' COMMENT '所属店铺ID',
+  `USER_ID` int NOT NULL DEFAULT '0' COMMENT '用户ID',
+  `VERIFY_CODE` varchar(10) DEFAULT '' COMMENT '核销验证码',
+  `IS_VISITOR` char(1) DEFAULT 'N' COMMENT '是否游客',
+  `AMOUNT` decimal(10,2) DEFAULT '0.00' COMMENT '订单金额',
+  `PAY_AMOUNT` decimal(10,2) DEFAULT '0.00' COMMENT '支付金额',
+  `USE_POINT` int DEFAULT '0' COMMENT '使用积分数量',
+  `POINT_AMOUNT` decimal(10,2) DEFAULT '0.00' COMMENT '积分金额',
+  `DISCOUNT` decimal(10,2) DEFAULT '0.00' COMMENT '折扣金额',
+  `DELIVERY_FEE` decimal(10,2) DEFAULT '0.00' COMMENT '配送费用',
+  `PARAM` varchar(500) DEFAULT '' COMMENT '订单参数',
+  `EXPRESS_INFO` varchar(500) DEFAULT '' COMMENT '物流信息',
+  `REMARK` varchar(500) DEFAULT '' COMMENT '用户备注',
+  `CREATE_TIME` datetime DEFAULT NULL COMMENT '创建时间',
+  `UPDATE_TIME` datetime DEFAULT NULL COMMENT '更新时间',
+  `STATUS` char(1) DEFAULT 'A' COMMENT '订单状态',
+  `PAY_TIME` datetime DEFAULT NULL COMMENT '支付时间',
+  `PAY_STATUS` char(1) DEFAULT '' COMMENT '支付状态',
+  `SETTLE_STATUS` char(1) DEFAULT 'A' COMMENT '结算状态',
+  `STAFF_ID` int DEFAULT '0' COMMENT '操作员工',
+  `CONFIRM_STATUS` char(1) DEFAULT 'N' COMMENT '核销状态',
+  `CONFIRM_TIME` datetime DEFAULT NULL COMMENT '核销时间',
+  `CONFIRM_REMARK` varchar(500) DEFAULT NULL COMMENT '核销备注',
+  `COMMISSION_USER_ID` int DEFAULT '0' COMMENT '分佣用户ID',
+  `COMMISSION_STATUS` char(1) DEFAULT 'A' COMMENT '分佣提成计算状态',
+  `OPERATOR` varchar(30) DEFAULT '' COMMENT '最后操作人',
+  PRIMARY KEY (`ID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='订单表';
 
 /*Table structure for table `mt_order_address` */
@@ -985,6 +988,39 @@ CREATE TABLE `mt_store` (
   `OPERATOR` varchar(30) DEFAULT '' COMMENT '最后操作人',
   PRIMARY KEY (`ID`)
 ) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED COMMENT='店铺表';
+
+/*Table structure for table `mt_store_goods` */
+
+DROP TABLE IF EXISTS `mt_store_goods`;
+CREATE TABLE `mt_store_goods` (
+  `ID` int NOT NULL AUTO_INCREMENT COMMENT '自增ID',
+  `MERCHANT_ID` int unsigned NOT NULL DEFAULT '0' COMMENT '所属商户',
+  `STORE_ID` int NOT NULL DEFAULT '0' COMMENT '所属店铺',
+  `GOODS_ID` int NOT NULL DEFAULT '0' COMMENT '商品ID',
+  `CREATE_TIME` datetime DEFAULT NULL COMMENT '创建时间',
+  `UPDATE_TIME` datetime DEFAULT NULL COMMENT '更新时间',
+  `STATUS` char(1) DEFAULT 'A' COMMENT '状态，A：有效/启用；D：无效',
+  `OPERATOR` varchar(30) DEFAULT '' COMMENT '最后操作人',
+  PRIMARY KEY (`ID`),
+  KEY `INDEX_STORE_ID` (`STORE_ID`),
+  KEY `INDEX_GOODS_ID` (`GOODS_ID`)
+) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8 ROW_FORMAT=COMPRESSED COMMENT='店铺商品表';
+
+/*Table structure for table `mt_upload_shipping_log` */
+DROP TABLE IF EXISTS `mt_upload_shipping_log`;
+CREATE TABLE `mt_upload_shipping_log` (
+  `ID` int NOT NULL AUTO_INCREMENT COMMENT '自增ID',
+  `MERCHANT_ID` int DEFAULT '0' COMMENT '所属商户ID',
+  `STORE_ID` int DEFAULT '0' COMMENT '所属店铺ID',
+  `ORDER_ID` int DEFAULT '0' COMMENT '订单ID',
+  `ORDER_SN` varchar(100) DEFAULT '' COMMENT '订单号',
+  `MOBILE` varchar(20) DEFAULT '' COMMENT '手机号',
+  `CREATE_TIME` datetime DEFAULT NULL COMMENT '创建时间',
+  `UPDATE_TIME` datetime DEFAULT NULL COMMENT '更新时间',
+  `OPERATOR` varchar(30) DEFAULT NULL COMMENT '最后操作人',
+  `STATUS` char(1) DEFAULT 'A' COMMENT 'A：完成；B：失败',
+  PRIMARY KEY (`ID`)
+) ENGINE=InnoDB AUTO_INCREMENT=480 DEFAULT CHARSET=utf8 COMMENT='微信小程序上传发货信息记录表';
 
 /*Table structure for table `mt_user` */
 

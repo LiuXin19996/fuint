@@ -53,6 +53,7 @@ public class ClientMyCouponController extends BaseController {
         String token = request.getHeader("Access-Token");
         String status = request.getParameter("status") == null ? "" : request.getParameter("status");
         String type = request.getParameter("type") == null ? "" : request.getParameter("type");
+        String userId = request.getParameter("userId") == null ? "" : request.getParameter("userId");
 
         if (StringUtil.isEmpty(token)) {
             return getFailureResult(1001);
@@ -61,6 +62,9 @@ public class ClientMyCouponController extends BaseController {
         UserInfo mtUser = TokenUtil.getUserInfoByToken(token);
         if (null == mtUser) {
             return getFailureResult(1001);
+        }
+        if (StringUtil.isNotEmpty(userId)) {
+            mtUser.setId(Integer.parseInt(userId));
         }
 
         Map<String, Object> param = new HashMap<>();
@@ -80,7 +84,7 @@ public class ClientMyCouponController extends BaseController {
      * @return
      */
     @ApiOperation(value = "查询我的卡券是否已使用")
-    @RequestMapping(value = "/isUsed", method = RequestMethod.GET)
+    @RequestMapping(value = "/isUsed", method = RequestMethod.POST)
     @CrossOrigin
     public ResponseObject isUsed(HttpServletRequest request, @RequestBody MyCouponRequest requestParam) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
@@ -111,7 +115,7 @@ public class ClientMyCouponController extends BaseController {
      * @return
      */
     @ApiOperation(value = "删除我的卡券")
-    @RequestMapping(value = "/remove", method = RequestMethod.GET)
+    @RequestMapping(value = "/remove", method = RequestMethod.POST)
     @CrossOrigin
     public ResponseObject remove(HttpServletRequest request, @RequestBody MyCouponRequest requestParam) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");

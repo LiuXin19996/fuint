@@ -81,6 +81,11 @@ public class ClientUserController extends BaseController {
     private MerchantService merchantService;
 
     /**
+     * 验证码接口
+     */
+    private VerifyCodeService verifyCodeService;
+
+    /**
      * 获取会员信息
      */
     @ApiOperation(value = "获取会员信息")
@@ -176,8 +181,15 @@ public class ClientUserController extends BaseController {
     @CrossOrigin
     public ResponseObject asset(HttpServletRequest request) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
-        UserInfo mtUser = TokenUtil.getUserInfoByToken(token);
+        String userId = request.getParameter("userId");
 
+        UserInfo mtUser = TokenUtil.getUserInfoByToken(token);
+        if (StringUtil.isNotEmpty(userId)) {
+            MtUser userInfo = memberService.queryMemberById(Integer.parseInt(userId));
+            if (userInfo != null) {
+                mtUser.setId(userInfo.getId());
+            }
+        }
         Integer couponNum = 0;
         Integer preStoreNum = 0;
         Integer timerNum = 0;
@@ -256,6 +268,8 @@ public class ClientUserController extends BaseController {
         String code = param.get("code") == null ? "" : param.get("code").toString();
         String password = param.get("password") == null ? "" : param.get("password").toString();
         String passwordOld = param.get("passwordOld") == null ? "" : param.get("passwordOld").toString();
+        String phone = param.get("mobile") == null ? "" : param.get("mobile").toString();
+        String verifyCode = param.get("verifyCode") == null ? "" : param.get("verifyCode").toString();
         String mobile = "";
         Integer merchantId = merchantService.getMerchantId(merchantNo);
         UserInfo userInfo = TokenUtil.getUserInfoByToken(token);
@@ -264,6 +278,17 @@ public class ClientUserController extends BaseController {
             return getFailureResult(1001);
         }
 
+        // 通过短信验证码修改手机号
+        if (StringUtil.isNotEmpty(phone) && StringUtil.isNotEmpty(verifyCode)) {
+            MtVerifyCode mtVerifyCode = verifyCodeService.checkVerifyCode(phone, verifyCode);
+            if (mtVerifyCode != null) {
+                mobile = phone;
+            } else {
+                return getFailureResult(3002);
+            }
+        }
+
+        // 小程序获取手机号
         if (StringUtil.isNotEmpty(code)) {
             JSONObject loginInfo = weixinService.getWxProfile(merchantId, code);
             if (loginInfo != null) {

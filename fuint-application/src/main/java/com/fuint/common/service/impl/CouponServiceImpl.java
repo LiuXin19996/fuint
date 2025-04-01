@@ -177,6 +177,9 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
             mtCoupon = mtCouponMapper.selectById(reqCouponDto.getId());
         } else {
             mtCoupon = new MtCoupon();
+            if (reqCouponDto.getMerchantId() == null || reqCouponDto.getMerchantId() <= 0) {
+                throw new BusinessCheckException("平台方帐号无法执行该操作，请使用商户帐号操作");
+            }
         }
         // 固定有效期验证
         if (reqCouponDto.getExpireType().equals(CouponExpireTypeEnum.FIX.getKey())) {
@@ -433,6 +436,9 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
         couponInfo.setUpdateTime(new Date());
         // 操作人
         couponInfo.setOperator(operator);
+        // 删除会员关联的卡券
+        userCouponService.removeUserCouponByCouponId(couponInfo.getId());
+
         mtCouponMapper.updateById(couponInfo);
     }
 
@@ -444,7 +450,7 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
      * */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ResponseObject findCouponList(CouponListParam couponListParam) {
+    public ResponseObject findCouponList(CouponListParam couponListParam) throws BusinessCheckException {
         Integer pageNumber = couponListParam.getPage() == null ? Constants.PAGE_NUMBER : couponListParam.getPage();
         Integer pageSize = couponListParam.getPageSize() == null ? Constants.PAGE_SIZE : couponListParam.getPageSize();
         String status = couponListParam.getStatus() == null ? StatusEnum.ENABLED.getKey() : couponListParam.getStatus();
@@ -453,6 +459,10 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
         Integer needPoint = couponListParam.getNeedPoint() == null ? 0 : couponListParam.getNeedPoint();
         String sendWay = couponListParam.getSendWay() == null ? "front" : couponListParam.getSendWay();
         Integer merchantId = couponListParam.getMerchantId() == null ? 0 : couponListParam.getMerchantId();
+        Integer storeId = couponListParam.getStoreId() == null ? 0 : couponListParam.getStoreId();
+        String keyword = couponListParam.getKeyword() == null ? "" : couponListParam.getKeyword();
+        String sortType = couponListParam.getSortType() == null ? "" : couponListParam.getSortType();
+        String sortPrice = couponListParam.getSortPrice() == null ? "0" : couponListParam.getSortPrice();
 
         Page<MtCoupon> pageHelper = PageHelper.startPage(pageNumber, pageSize);
         LambdaQueryWrapper<MtCoupon> lambdaQueryWrapper = Wrappers.lambdaQuery();
@@ -463,6 +473,12 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
         if (StringUtil.isNotEmpty(sendWay)) {
             lambdaQueryWrapper.eq(MtCoupon::getSendWay, sendWay);
         }
+        if (StringUtil.isNotEmpty(keyword)) {
+            lambdaQueryWrapper.and(wq -> wq
+                    .eq(MtCoupon::getId, keyword)
+                    .or()
+                    .like(MtCoupon::getName, keyword));
+        }
         if (StringUtil.isNotEmpty(type)) {
             lambdaQueryWrapper.eq(MtCoupon::getType, type);
         }
@@ -472,8 +488,20 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
         if (merchantId != null && merchantId > 0) {
             lambdaQueryWrapper.eq(MtCoupon::getMerchantId, merchantId);
         }
-
-        lambdaQueryWrapper.orderByDesc(MtCoupon::getId);
+        if (storeId != null && storeId > 0) {
+            lambdaQueryWrapper.eq(MtCoupon::getStoreId, storeId);
+        }
+        if (StringUtil.isNotEmpty(sortType)) {
+            if (sortType.equals("price")) {
+                if (sortPrice.equals("0")) {
+                    lambdaQueryWrapper.orderByDesc(MtCoupon::getAmount);
+                } else {
+                    lambdaQueryWrapper.orderByAsc(MtCoupon::getAmount);
+                }
+            }
+        } else {
+            lambdaQueryWrapper.orderByAsc(MtCoupon::getId);
+        }
         List<MtCoupon> dataList = mtCouponMapper.selectList(lambdaQueryWrapper);
 
         // 处理已过期
@@ -599,6 +627,9 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
     @Transactional(rollbackFor = Exception.class)
     @OperationServiceLog(description = "发放卡券")
     public void sendCoupon(Integer couponId, Integer userId, Integer num, Boolean sendMessage, String uuid, String operator) throws BusinessCheckException {
+        if (StringUtil.isEmpty(uuid)) {
+            uuid = UUID.randomUUID().toString().replaceAll("-", "");
+        }
         MtCoupon couponInfo = queryCouponById(couponId);
         MtUser userInfo = memberService.queryMemberById(userId);
 
@@ -610,7 +641,13 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
 
         // 判断券是否有效
         if (!couponInfo.getStatus().equals(StatusEnum.ENABLED.getKey())) {
-            throw new BusinessCheckException("卡券“"+couponInfo.getName()+"”已停用,不能发放");
+            throw new BusinessCheckException("卡券“"+couponInfo.getName()+"”已停用，不能发放");
+        }
+
+        // 判断是否过期
+        Date now = new Date();
+        if (couponInfo.getEndTime() != null && couponInfo.getEndTime().before(now)) {
+            throw new BusinessCheckException("卡券“"+ couponInfo.getName() +"”已过期，不能发放");
         }
 
         // 是否超过拥有数量
@@ -976,8 +1013,8 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
             Date sendTime = new Date(nowTime.getTime());
             Map<String, Object> param = new HashMap<>();
             String dateTime = DateUtil.formatDate(Calendar.getInstance().getTime(), "yyyy-MM-dd HH:mm");
-            params.put("name", couponInfo.getName());
-            params.put("time", dateTime);
+            param.put("name", couponInfo.getName());
+            param.put("time", dateTime);
             weixinService.sendSubscribeMessage(userInfo.getMerchantId(), userInfo.getId(), userInfo.getOpenId(), WxMessageEnum.COUPON_CONFIRM.getKey(), "pages/user/index", param, sendTime);
         } catch (Exception e) {
             logger.error("核销卡券发送通知消息出错：", e.getMessage());
@@ -1004,7 +1041,7 @@ public class CouponServiceImpl extends ServiceImpl<MtCouponMapper, MtCoupon> imp
 
         // 未使用状态才能作废删除
         if(!userCoupon.getStatus().equals(UserCouponStatusEnum.UNUSED.getKey())) {
-            throw new BusinessCheckException("不能作废，该劵状态异常");
+            throw new BusinessCheckException("未使用状态的卡券才能作废");
         }
         userCoupon.setStatus(UserCouponStatusEnum.DISABLE.getKey());
 

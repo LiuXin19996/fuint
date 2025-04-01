@@ -102,7 +102,7 @@ public class ClientConfirmController extends BaseController {
                     storeId = staff.getStoreId();
                 }
                 String storeIdsStr = couponInfo.getStoreIds();
-                if (StringUtil.isNotEmpty(storeIdsStr)) {
+                if (StringUtil.isNotEmpty(storeIdsStr) && storeId > 0) {
                     String[] storeIds = couponInfo.getStoreIds().split(",");
                     Boolean isSameStore = false;
                     for (String hid : storeIds) {
@@ -112,7 +112,7 @@ public class ClientConfirmController extends BaseController {
                         }
                     }
                     if (!isSameStore) {
-                        return getFailureResult(1003, "员工对该卡券没有权限");
+                        return getFailureResult(1003, "抱歉，该卡券存在店铺使用范围限制，您所在的店铺无法核销！");
                     }
                 }
             }

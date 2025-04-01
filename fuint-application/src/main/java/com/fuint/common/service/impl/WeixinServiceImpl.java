@@ -16,8 +16,10 @@ import com.fuint.common.enums.*;
 import com.fuint.common.http.HttpRESTDataClient;
 import com.fuint.common.service.*;
 import com.fuint.common.util.*;
+import com.fuint.common.vo.printer.OrderStatusType;
 import com.fuint.framework.exception.BusinessCheckException;
 import com.fuint.framework.web.ResponseObject;
+import com.fuint.repository.mapper.MtUploadShippingLogMapper;
 import com.fuint.repository.model.*;
 import com.fuint.utils.QRCodeUtil;
 import com.fuint.utils.StringUtil;
@@ -63,6 +65,8 @@ import java.util.*;
 public class WeixinServiceImpl implements WeixinService {
 
     private static final Logger logger = LoggerFactory.getLogger(WeixinServiceImpl.class);
+
+    private MtUploadShippingLogMapper uploadShippingLogMapper;
 
     /**
      * 订单服务接口
@@ -1019,7 +1023,7 @@ public class WeixinServiceImpl implements WeixinService {
             throw new BusinessCheckException("上传发货信息失败，会员的openId不能为空！");
         }
         // 是否是微信小程序订单 && 微信支付
-        if (orderInfo != null && !orderInfo.getPlatform().equals(PlatformTypeEnum.MP_WEIXIN.getCode()) || !orderInfo.getPayType().equals(PayTypeEnum.JSAPI.name())) {
+        if (orderInfo != null && orderInfo.getPlatform().equals(PlatformTypeEnum.MP_WEIXIN.getCode()) || orderInfo.getPayType().equals(PayTypeEnum.JSAPI.name())) {
             String url = "https://api.weixin.qq.com/wxa/sec/order/upload_shipping_info?access_token=" + getAccessToken(orderInfo.getMerchantId(), true, true);
 
             // 获取微信支付配置
@@ -1065,11 +1069,22 @@ public class WeixinServiceImpl implements WeixinService {
                 String response = HttpRESTDataClient.requestPostBody(url, reqJson);
                 logger.info("微信上传发货信息接口参数：{}，返回：{}", reqJson, response);
                 JSONObject data = (JSONObject) JSONObject.parse(response);
+                MtUploadShippingLog mtUploadShippingLog = new MtUploadShippingLog();
+                mtUploadShippingLog.setMerchantId(orderInfo.getMerchantId());
+                mtUploadShippingLog.setStoreId(orderInfo.getStoreId());
+                mtUploadShippingLog.setOrderId(orderInfo.getId());
+                mtUploadShippingLog.setOrderSn(orderSn);
+                mtUploadShippingLog.setMobile(orderInfo.getAddress().getMobile());
+                Date time = new Date();
+                mtUploadShippingLog.setCreateTime(time);
+                mtUploadShippingLog.setUpdateTime(time);
                 if (data.get("errcode").toString().equals("0")) {
                     logger.info("微信上传发货信息接口成功，订单号：", orderSn);
+                    mtUploadShippingLog.setStatus(OrderStatusType.Completed.getVal());
                 } else {
-                    logger.error("微信上传发货信息接口失败，订单号：", orderSn);
+                    mtUploadShippingLog.setStatus(OrderStatusType.Failed.getVal());
                 }
+                uploadShippingLogMapper.insert(mtUploadShippingLog);
             } catch (Exception e) {
                 logger.error("微信上传发货信息接口失败：", e.getMessage());
             }
@@ -1194,6 +1209,7 @@ public class WeixinServiceImpl implements WeixinService {
                     .createSign(wxPayApiConfig.getPartnerKey(), SignType.MD5);
             String xmlResult = WxPayApi.pushOrder(false, params);
 
+            logger.info("调用微信支付回调地址：{}", wxPayApiConfig.getDomain() + CALL_BACK_URL);
             logger.info("调用微信支付下单接口返回xml：{}", xmlResult);
             Map<String, String> result = WxPayKit.xmlToMap(xmlResult);
 
@@ -1313,8 +1329,8 @@ public class WeixinServiceImpl implements WeixinService {
                    .domain(wxPayBean.getDomain())
                    .build();
 
-        // 微信内h5公众号支付
-        if (platform.equals(PlatformTypeEnum.H5.getCode())) {
+        // 微信内h5公众号支付或PC收银
+        if (platform.equals(PlatformTypeEnum.H5.getCode()) || platform.equals(PlatformTypeEnum.PC.getCode())) {
             String wxAppId = env.getProperty("weixin.official.appId");
             String wxAppSecret = env.getProperty("weixin.official.appSecret");
 

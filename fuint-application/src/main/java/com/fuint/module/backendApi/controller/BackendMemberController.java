@@ -7,6 +7,7 @@ import com.fuint.common.enums.StatusEnum;
 import com.fuint.common.enums.UserSettingEnum;
 import com.fuint.common.enums.YesOrNoEnum;
 import com.fuint.common.service.*;
+import com.fuint.common.util.CommonUtil;
 import com.fuint.common.util.DateUtil;
 import com.fuint.common.util.PhoneFormatCheckUtils;
 import com.fuint.common.util.TokenUtil;
@@ -201,11 +202,6 @@ public class BackendMemberController extends BaseController {
         Integer userId = param.get("userId") == null ? 0 : Integer.parseInt(param.get("userId").toString());
         String status = param.get("status") == null ? StatusEnum.ENABLED.getKey() : param.get("status").toString();
 
-        AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
-
         MtUser userInfo = memberService.queryMemberById(userId);
         if (userInfo == null) {
             return getFailureResult(201, "会员不存在");
@@ -230,9 +226,6 @@ public class BackendMemberController extends BaseController {
     public ResponseObject delete(HttpServletRequest request, @PathVariable("id") Integer id) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         String operator = accountInfo.getAccountName();
         memberService.deleteMember(id, operator);
@@ -252,9 +245,6 @@ public class BackendMemberController extends BaseController {
     public ResponseObject save(HttpServletRequest request, @RequestBody Map<String, Object> param) throws BusinessCheckException, ParseException {
         String token = request.getHeader("Access-Token");
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         String id = param.get("id").toString();
         String name = param.get("name") == null ? "" : param.get("name").toString();
@@ -335,9 +325,6 @@ public class BackendMemberController extends BaseController {
     public ResponseObject info(HttpServletRequest request, @PathVariable("id") Integer id) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         MtUser mtUser = memberService.queryMemberById(id);
         if (mtUser == null) {
@@ -353,13 +340,7 @@ public class BackendMemberController extends BaseController {
             BeanUtils.copyProperties(mtUserGroup, userGroupDto);
             memberInfo.setGroupInfo(userGroupDto);
         }
-
-        // 隐藏手机号中间四位
-        String phone = memberInfo.getMobile();
-        if (phone != null && StringUtil.isNotEmpty(phone) && phone.length() == 11) {
-            memberInfo.setMobile(phone.substring(0, 3) + "****" + phone.substring(7));
-        }
-
+        memberInfo.setMobile(CommonUtil.hidePhone(memberInfo.getMobile()));
         Map<String, Object> param = new HashMap<>();
         if (accountInfo.getMerchantId() != null && accountInfo.getMerchantId() > 0) {
             param.put("MERCHANT_ID", accountInfo.getMerchantId());
@@ -387,9 +368,6 @@ public class BackendMemberController extends BaseController {
     public ResponseObject setting(HttpServletRequest request) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         List<MtSetting> settingList = settingService.getSettingList(accountInfo.getMerchantId(), SettingTypeEnum.USER.getKey());
 
@@ -445,9 +423,6 @@ public class BackendMemberController extends BaseController {
         String wxMemberCard = param.get("wxMemberCard") != null ? param.get("wxMemberCard").toString() : null;
 
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         UserSettingEnum[] settingList = UserSettingEnum.values();
         for (UserSettingEnum setting : settingList) {
@@ -513,9 +488,6 @@ public class BackendMemberController extends BaseController {
         String password = param.get("password") == null ? "" : param.get("password").toString();
 
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         if (StringUtil.isEmpty(password)) {
             return getFailureResult(1001, "密码格式有误");
@@ -547,13 +519,9 @@ public class BackendMemberController extends BaseController {
     @ApiOperation(value = "获取会员分组")
     @RequestMapping(value = "/groupList", method = RequestMethod.GET)
     @CrossOrigin
-    @PreAuthorize("@pms.hasPermission('member:group:index')")
     public ResponseObject groupList(HttpServletRequest request) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         // 会员分组
         List<UserGroupDto> groupList = new ArrayList<>();
@@ -587,9 +555,6 @@ public class BackendMemberController extends BaseController {
         String groupIds = request.getParameter("groupIds") != null ? request.getParameter("groupIds") : "";
         String keyword = request.getParameter("keyword") != null ? request.getParameter("keyword") : "";
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
         List<GroupMemberDto> memberList = memberService.searchMembers(accountInfo.getMerchantId(), keyword, groupIds,1, Constants.MAX_ROWS);
         return getSuccessResult(memberList);
     }

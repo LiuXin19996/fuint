@@ -22,6 +22,23 @@ import java.util.regex.Matcher;
 public class CommonUtil {
 
     /**
+     * 隐藏手机号中间4位
+     *
+     * @param phone
+     * @return
+     * */
+    public static String hidePhone(String phone) {
+        if (StringUtil.isEmpty(phone)) {
+            return "";
+        }
+        if (phone.length() < 11) {
+            return phone;
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(7);
+    }
+
+
+    /**
      * 功能：将输入字符串的首字母改成大写
      *
      * @param str
@@ -456,6 +473,39 @@ public class CommonUtil {
                 || ((first >= 0x1F000 && first <= 0x1FFFF))
                 || ((first >= 0x2702) && (first <= 0x27B0))
                 || ((first >= 0x1F601) && (first <= 0x1F64F));
+    }
+
+    /**
+     * 处理html中的视频
+     *
+     * @param html
+     * @return
+     * */
+    public static String fixVideo(String html) {
+        // 正则表达式匹配<iframe>标签，并捕获src属性
+        String iframeRegex = "<iframe[^>]+src\\s*=\\s*['\"]([^'\"]+)['\"][^>]*>";
+        Pattern pattern = Pattern.compile(iframeRegex);
+        Matcher matcher = pattern.matcher(html);
+
+        // 用于存储替换后的HTML
+        StringBuffer result = new StringBuffer();
+
+        // 遍历所有匹配的<iframe>标签
+        while (matcher.find()) {
+            // 获取src属性的值
+            String src = matcher.group(1);
+
+            // 构建<video>标签
+            String videoTag = "<video controls><source src=\"" + src + "\" type=\"video/mp4\">Your browser does not support the video tag.</video>";
+
+            // 将匹配的<iframe>标签替换为<video>标签
+            matcher.appendReplacement(result, videoTag);
+        }
+
+        // 将剩余的HTML内容追加到结果中
+        matcher.appendTail(result);
+
+        return result.toString();
     }
 
     /**
