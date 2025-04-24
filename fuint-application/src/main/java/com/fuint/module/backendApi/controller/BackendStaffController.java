@@ -5,6 +5,7 @@ import com.fuint.common.dto.AccountInfo;
 import com.fuint.common.dto.ParamDto;
 import com.fuint.common.enums.StaffCategoryEnum;
 import com.fuint.common.enums.StatusEnum;
+import com.fuint.common.param.StaffParam;
 import com.fuint.common.service.StaffService;
 import com.fuint.common.util.CommonUtil;
 import com.fuint.common.util.PhoneFormatCheckUtils;
@@ -21,9 +22,7 @@ import io.swagger.annotations.ApiOperation;
 import lombok.AllArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,9 +65,6 @@ public class BackendStaffController extends BaseController {
         String category = request.getParameter("category");
 
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
         if (accountInfo.getStoreId() != null && accountInfo.getStoreId() > 0) {
             storeId = accountInfo.getStoreId().toString();
         }
@@ -99,15 +95,7 @@ public class BackendStaffController extends BaseController {
         PaginationResponse<MtStaff> paginationResponse = staffService.queryStaffListByPagination(paginationRequest);
 
         // 员工类别列表
-        StaffCategoryEnum[] categoryListEnum = StaffCategoryEnum.values();
-        List<ParamDto> categoryList = new ArrayList<>();
-        for (StaffCategoryEnum enumItem : categoryListEnum) {
-            ParamDto paramDto = new ParamDto();
-            paramDto.setKey(enumItem.getKey());
-            paramDto.setName(enumItem.getName());
-            paramDto.setValue(enumItem.getKey());
-            categoryList.add(paramDto);
-        }
+        List<ParamDto> categoryList = StaffCategoryEnum.getStaffCategoryList();
 
         Map<String, Object> result = new HashMap<>();
         result.put("paginationResponse", paginationResponse);
@@ -145,47 +133,41 @@ public class BackendStaffController extends BaseController {
     @RequestMapping(value = "/save", method = RequestMethod.POST)
     @CrossOrigin
     @PreAuthorize("@pms.hasPermission('staff:list')")
-    public ResponseObject saveHandler(HttpServletRequest request, @RequestBody Map<String, Object> params) throws BusinessCheckException {
+    public ResponseObject saveHandler(HttpServletRequest request, @RequestBody StaffParam staffParam) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
-        String id = params.get("id") == null ? "0" : params.get("id").toString();
-        String storeId = params.get("storeId") == null ? "0" : params.get("storeId").toString();
-        String category = params.get("category") == null ? "0" : params.get("category").toString();
-        String mobile = params.get("mobile") == null ? "" : CommonUtil.replaceXSS(params.get("mobile").toString());
-        String realName = params.get("realName") == null ? "" : CommonUtil.replaceXSS(params.get("realName").toString());
-        String description = params.get("description") == null ? "" : CommonUtil.replaceXSS(params.get("description").toString());
-        String status = params.get("auditedStatus") == null ? StatusEnum.FORBIDDEN.getKey() : CommonUtil.replaceXSS(params.get("auditedStatus").toString());
-
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-
         if (accountInfo.getMerchantId() == null || accountInfo.getMerchantId() <= 0) {
             return getFailureResult(201, "平台方帐号无法执行该操作，请使用商户帐号操作");
         }
 
         MtStaff mtStaff = new MtStaff();
-        if (StringUtil.isNotEmpty(id)) {
-            mtStaff = staffService.queryStaffById(Integer.parseInt(id));
+        Integer storeId = staffParam.getStoreId();
+        if (staffParam.getId() != null) {
+            mtStaff = staffService.queryStaffById(staffParam.getId());
         }
-
-        if (mtStaff == null && StringUtil.isNotEmpty(id)) {
+        if (staffParam.getId() != null && mtStaff == null) {
             return getFailureResult(201, "员工信息不存在");
         }
         if (accountInfo.getMerchantId() != null && accountInfo.getMerchantId() > 0) {
             mtStaff.setMerchantId(accountInfo.getMerchantId());
         }
-        mtStaff.setStoreId(Integer.parseInt(storeId));
-        mtStaff.setRealName(realName);
-        if (PhoneFormatCheckUtils.isChinaPhoneLegal(mobile)) {
-            mtStaff.setMobile(mobile);
+        if (accountInfo.getStoreId() != null && accountInfo.getStoreId() > 0) {
+            storeId = accountInfo.getStoreId();
         }
-        mtStaff.setAuditedStatus(status);
-        mtStaff.setDescription(description);
-        mtStaff.setCategory(Integer.parseInt(category));
+        mtStaff.setStoreId(storeId);
+        mtStaff.setRealName(staffParam.getRealName());
+        if (PhoneFormatCheckUtils.isChinaPhoneLegal(staffParam.getMobile())) {
+            mtStaff.setMobile(staffParam.getMobile());
+        }
+        mtStaff.setAuditedStatus(staffParam.getAuditedStatus() == null ? StatusEnum.FORBIDDEN.getKey() : staffParam.getAuditedStatus());
+        mtStaff.setDescription(staffParam.getDescription());
+        mtStaff.setCategory(staffParam.getCategory());
 
         if (StringUtil.isEmpty(mtStaff.getMobile())) {
             return getFailureResult(201, "手机号码不能为空");
         } else {
-            MtStaff tempUser = staffService.queryStaffByMobile(mtStaff.getMobile());
-            if (tempUser != null && !tempUser.getId().equals(mtStaff.getId())) {
+            MtStaff staff = staffService.queryStaffByMobile(mtStaff.getMobile());
+            if (staff != null && !staff.getId().equals(mtStaff.getId())) {
                 return getFailureResult(201, "该手机号码已经存在");
             }
         }
@@ -207,11 +189,11 @@ public class BackendStaffController extends BaseController {
         String token = request.getHeader("Access-Token");
 
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
+        MtStaff staffInfo = staffService.queryStaffById(id);
+        if (accountInfo.getMerchantId() > 0 && !accountInfo.getMerchantId().equals(staffInfo.getMerchantId())) {
+            return getFailureResult(1004);
         }
 
-        MtStaff staffInfo = staffService.queryStaffById(id);
         if (staffInfo != null) {
             staffInfo.setMobile(CommonUtil.hidePhone(staffInfo.getMobile()));
         }

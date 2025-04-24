@@ -24,7 +24,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,12 +73,7 @@ public class BackendCommissionCashController extends BaseController {
         String endTime = request.getParameter("endTime") == null ? "" : request.getParameter("endTime");
 
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        Integer storeId;
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        } else {
-            storeId = accountInfo.getStoreId();
-        }
+        Integer storeId = accountInfo.getStoreId();
 
         PaginationRequest paginationRequest = new PaginationRequest();
         paginationRequest.setCurrentPage(page);
@@ -124,15 +118,7 @@ public class BackendCommissionCashController extends BaseController {
         List<MtStore> storeList = storeService.queryStoresByParams(paramsStore);
 
         // 状态列表
-        CommissionCashStatusEnum[] statusListEnum = CommissionCashStatusEnum.values();
-        List<ParamDto> statusList = new ArrayList<>();
-        for (CommissionCashStatusEnum enumItem : statusListEnum) {
-            ParamDto paramDto = new ParamDto();
-            paramDto.setKey(enumItem.getKey());
-            paramDto.setName(enumItem.getValue());
-            paramDto.setValue(enumItem.getKey());
-            statusList.add(paramDto);
-        }
+        List<ParamDto> statusList = CommissionCashStatusEnum.getCommissionCashStatusList();
 
         Map<String, Object> result = new HashMap<>();
         result.put("dataList", paginationResponse);
@@ -155,11 +141,14 @@ public class BackendCommissionCashController extends BaseController {
     public ResponseObject info(HttpServletRequest request, @PathVariable("id") Integer id) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         CommissionCashDto commissionCash = commissionCashService.queryCommissionCashById(id);
+        if (accountInfo.getMerchantId() != null && accountInfo.getMerchantId() > 0) {
+            if (!accountInfo.getMerchantId().equals(commissionCash.getMerchantId())) {
+                return getFailureResult(1004);
+            }
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("commissionCash", commissionCash);
 
@@ -179,9 +168,6 @@ public class BackendCommissionCashController extends BaseController {
         String token = request.getHeader("Access-Token");
 
         AccountInfo accountDto = TokenUtil.getAccountInfoByToken(token);
-        if (accountDto == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         commissionCashRequest.setOperator(accountDto.getAccountName());
         commissionCashService.updateCommissionCash(commissionCashRequest);
@@ -202,9 +188,6 @@ public class BackendCommissionCashController extends BaseController {
         String token = request.getHeader("Access-Token");
 
         AccountInfo accountDto = TokenUtil.getAccountInfoByToken(token);
-        if (accountDto == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         requestParam.setOperator(accountDto.getAccountName());
         if (accountDto.getMerchantId() != null && accountDto.getMerchantId() > 0) {
@@ -228,9 +211,6 @@ public class BackendCommissionCashController extends BaseController {
         String token = request.getHeader("Access-Token");
 
         AccountInfo accountDto = TokenUtil.getAccountInfoByToken(token);
-        if (accountDto == null) {
-            return getFailureResult(1001, "请先登录");
-        }
         if (accountDto.getMerchantId() != null && accountDto.getMerchantId() > 0) {
             requestParam.setMerchantId(accountDto.getMerchantId());
         }

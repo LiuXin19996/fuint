@@ -82,7 +82,6 @@ public class GoodsServiceImpl extends ServiceImpl<MtGoodsMapper, MtGoods> implem
      */
     @Override
     public PaginationResponse<GoodsDto> queryGoodsListByPagination(PaginationRequest paginationRequest) throws BusinessCheckException {
-        Page<MtGoods> pageHelper = PageHelper.startPage(paginationRequest.getCurrentPage(), paginationRequest.getPageSize());
         LambdaQueryWrapper<MtGoods> lambdaQueryWrapper = Wrappers.lambdaQuery();
         lambdaQueryWrapper.ne(MtGoods::getStatus, StatusEnum.DISABLE.getKey());
 
@@ -149,8 +148,9 @@ public class GoodsServiceImpl extends ServiceImpl<MtGoodsMapper, MtGoods> implem
                 lambdaQueryWrapper.orderByAsc(MtGoods::getSort);
             }
         } else {
-            lambdaQueryWrapper.orderByAsc(MtGoods::getSort);
+            lambdaQueryWrapper.orderByAsc(MtGoods::getSort, MtGoods::getId);
         }
+        Page<MtGoods> pageHelper = PageHelper.startPage(paginationRequest.getCurrentPage(), paginationRequest.getPageSize());
         List<MtGoods> goodsList = mtGoodsMapper.selectList(lambdaQueryWrapper);
         List<GoodsDto> dataList = new ArrayList<>();
         String basePath = settingService.getUploadBasePath();
@@ -646,12 +646,13 @@ public class GoodsServiceImpl extends ServiceImpl<MtGoodsMapper, MtGoods> implem
      * 更新已售数量
      *
      * @param goodsId 商品ID
+     * @param saleNum 销售数量
      * @return
      * */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Boolean updateInitSale(Integer goodsId) {
-        return mtGoodsMapper.updateInitSale(goodsId);
+    public Boolean updateInitSale(Integer goodsId, Integer saleNum) {
+        return mtGoodsMapper.updateInitSale(goodsId, saleNum);
     }
 
     /**

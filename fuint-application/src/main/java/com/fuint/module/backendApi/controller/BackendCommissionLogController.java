@@ -26,7 +26,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,12 +81,7 @@ public class BackendCommissionLogController extends BaseController {
         String endTime = request.getParameter("endTime") == null ? "" : request.getParameter("endTime");
 
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        Integer storeId;
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        } else {
-            storeId = accountInfo.getStoreId();
-        }
+        Integer storeId = accountInfo.getStoreId();
 
         PaginationRequest paginationRequest = new PaginationRequest();
         paginationRequest.setCurrentPage(page);
@@ -138,26 +132,10 @@ public class BackendCommissionLogController extends BaseController {
         List<MtStore> storeList = storeService.queryStoresByParams(paramsStore);
 
         // 状态列表
-        CommissionStatusEnum[] statusListEnum = CommissionStatusEnum.values();
-        List<ParamDto> statusList = new ArrayList<>();
-        for (CommissionStatusEnum enumItem : statusListEnum) {
-            ParamDto paramDto = new ParamDto();
-            paramDto.setKey(enumItem.getKey());
-            paramDto.setName(enumItem.getValue());
-            paramDto.setValue(enumItem.getKey());
-            statusList.add(paramDto);
-        }
+        List<ParamDto> statusList = CommissionStatusEnum.getCommissionStatusList();
 
         // 分佣对象列表
-        CommissionTargetEnum[] targetListEnum = CommissionTargetEnum.values();
-        List<ParamDto> targetList = new ArrayList<>();
-        for (CommissionTargetEnum enumItem : targetListEnum) {
-            ParamDto paramDto = new ParamDto();
-            paramDto.setKey(enumItem.getKey());
-            paramDto.setName(enumItem.getValue());
-            paramDto.setValue(enumItem.getKey());
-            targetList.add(paramDto);
-        }
+        List<ParamDto> targetList = CommissionTargetEnum.getCommissionTargetList();
 
         Map<String, Object> result = new HashMap<>();
         result.put("dataList", paginationResponse);
@@ -181,11 +159,12 @@ public class BackendCommissionLogController extends BaseController {
     public ResponseObject info(HttpServletRequest request, @PathVariable("id") Integer id) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         CommissionLogDto commissionLog = commissionLogService.queryCommissionLogById(id);
+        if (accountInfo.getMerchantId() > 0 && !commissionLog.getMerchantId().equals(accountInfo.getMerchantId())) {
+            return getFailureResult(1004);
+        }
+
         Map<String, Object> result = new HashMap<>();
         result.put("commissionLog", commissionLog);
 
@@ -205,9 +184,6 @@ public class BackendCommissionLogController extends BaseController {
         String token = request.getHeader("Access-Token");
 
         AccountInfo accountDto = TokenUtil.getAccountInfoByToken(token);
-        if (accountDto == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         commissionLogRequest.setOperator(accountDto.getAccountName());
         commissionLogService.updateCommissionLog(commissionLogRequest);
@@ -228,8 +204,10 @@ public class BackendCommissionLogController extends BaseController {
     public ResponseObject delete(HttpServletRequest request, @PathVariable("id") Integer id) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-        if (accountInfo == null) {
-            return getFailureResult(1001, "请先登录");
+
+        CommissionLogDto commissionLog = commissionLogService.queryCommissionLogById(id);
+        if (accountInfo.getMerchantId() > 0 && !commissionLog.getMerchantId().equals(accountInfo.getMerchantId())) {
+            return getFailureResult(1004);
         }
 
         CommissionLogRequest commissionLogRequest = new CommissionLogRequest();
@@ -253,9 +231,6 @@ public class BackendCommissionLogController extends BaseController {
         String token = request.getHeader("Access-Token");
 
         AccountInfo accountDto = TokenUtil.getAccountInfoByToken(token);
-        if (accountDto == null) {
-            return getFailureResult(1001, "请先登录");
-        }
 
         commissionSettleRequest.setOperator(accountDto.getAccountName());
         if (accountDto.getMerchantId() != null && accountDto.getMerchantId() > 0) {
