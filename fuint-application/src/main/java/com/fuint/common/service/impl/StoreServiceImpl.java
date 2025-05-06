@@ -358,9 +358,7 @@ public class StoreServiceImpl extends ServiceImpl<MtStoreMapper, MtStore> implem
         }
 
         lambdaQueryWrapper.orderByAsc(MtStore::getStatus).orderByDesc(MtStore::getIsDefault);
-        List<MtStore> dataList = mtStoreMapper.selectList(lambdaQueryWrapper);
-
-        return dataList;
+        return mtStoreMapper.selectList(lambdaQueryWrapper);
     }
 
     /**
@@ -427,4 +425,44 @@ public class StoreServiceImpl extends ServiceImpl<MtStoreMapper, MtStore> implem
        }
        return String.join(",", storeNames);
     }
+
+    /**
+     * 获取店铺名称
+     *
+     * @param merchantId 商户ID
+     * @param storeNames 店铺名称
+     * @return
+     * */
+    @Override
+    public String getStoreIds(Integer merchantId, String storeNames) {
+        if (StringUtil.isEmpty(storeNames)) {
+            return "";
+        }
+        String[] names = storeNames.split(",");
+        List<String> storeIds = new ArrayList<>();
+        if (names.length > 0) {
+            for (int i = 0; i < names.length; i++) {
+                MtStore mtStore = mtStoreMapper.queryStoreByName(names[i]);
+                if (mtStore != null) {
+                    storeIds.add(mtStore.getId().toString());
+                }
+            }
+        }
+        return String.join(",", storeIds);
+    }
+
+    /**
+     * 根据商户ID删除店铺信息
+     *
+     * @param merchantId 商户ID
+     * @return
+     * */
+    @Override
+    public void deleteStoreByMerchant(Integer merchantId) {
+        if (merchantId == null || merchantId <= 0) {
+            return;
+        }
+        mtStoreMapper.deleteStoreByMerchant(merchantId);
+    }
+
 }

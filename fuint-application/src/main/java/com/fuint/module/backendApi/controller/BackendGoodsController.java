@@ -25,6 +25,9 @@ import lombok.AllArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
+
 import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
@@ -137,33 +140,6 @@ public class BackendGoodsController extends BaseController {
     }
 
     /**
-     * 删除商品
-     *
-     * @param request
-     * @param goodsId 商品ID
-     * @return
-     */
-    @ApiOperation(value = "删除商品")
-    @RequestMapping(value = "/delete/{id}", method = RequestMethod.GET)
-    @CrossOrigin
-    @PreAuthorize("@pms.hasPermission('goods:goods:edit')")
-    public ResponseObject delete(HttpServletRequest request, @PathVariable("id") Integer goodsId) throws BusinessCheckException {
-        String token = request.getHeader("Access-Token");
-
-        AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
-
-        MtGoods mtGoods = goodsService.queryGoodsById(goodsId);
-        if (accountInfo.getMerchantId() != null && accountInfo.getMerchantId() > 0 && !mtGoods.getMerchantId().equals(accountInfo.getMerchantId())) {
-            return getFailureResult(1004);
-        }
-
-        String operator = accountInfo.getAccountName();
-        goodsService.deleteGoods(goodsId, operator);
-
-        return getSuccessResult(true);
-    }
-
-    /**
      * 更新商品状态
      *
      * @return
@@ -175,11 +151,11 @@ public class BackendGoodsController extends BaseController {
     public ResponseObject updateStatus(HttpServletRequest request, @RequestBody Map<String, Object> params) throws BusinessCheckException {
         String token = request.getHeader("Access-Token");
         String status = params.get("status") != null ? params.get("status").toString() : StatusEnum.ENABLED.getKey();
-        Integer id = params.get("id") == null ? 0 : Integer.parseInt(params.get("id").toString());
+        Integer goodsId = params.get("id") == null ? 0 : Integer.parseInt(params.get("id").toString());
 
         AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
 
-        MtGoods mtGoods = goodsService.queryGoodsById(id);
+        MtGoods mtGoods = goodsService.queryGoodsById(goodsId);
         if (mtGoods == null) {
             return getFailureResult(201, "该商品不存在");
         }
@@ -189,12 +165,7 @@ public class BackendGoodsController extends BaseController {
         }
 
         String operator = accountInfo.getAccountName();
-
-        MtGoods goodsInfo = new MtGoods();
-        goodsInfo.setOperator(operator);
-        goodsInfo.setId(id);
-        goodsInfo.setStatus(status);
-        goodsService.saveGoods(goodsInfo, null);
+        goodsService.updateStatus(goodsId, status, operator);
 
         return getSuccessResult(true);
     }
@@ -343,7 +314,7 @@ public class BackendGoodsController extends BaseController {
         String price = param.get("price") == null ? "" : param.get("price").toString();
         String linePrice = param.get("linePrice") == null ? "" : param.get("linePrice").toString();
         String weight = param.get("weight") == null ? "" : param.get("weight").toString();
-        Integer initSale = param.get("initSale") == null ? 0 : Integer.parseInt(param.get("initSale").toString());
+        Double initSale = param.get("initSale") == null ? 0 : Double.parseDouble(param.get("initSale").toString());
         String salePoint = param.get("salePoint") == null ? "" : param.get("salePoint").toString();
         String canUsePoint = param.get("canUsePoint") == null ? "" : param.get("canUsePoint").toString();
         String isMemberDiscount = param.get("isMemberDiscount") == null ? "" : param.get("isMemberDiscount").toString();
@@ -424,7 +395,7 @@ public class BackendGoodsController extends BaseController {
             if (StringUtil.isEmpty(skuStock)) {
                 skuStock = "0";
             }
-            sku.setStock(Integer.parseInt(skuStock));
+            sku.setStock(Double.parseDouble(skuStock));
 
             BigDecimal skuPrice = new BigDecimal("0");
             if (skuDto.get("price") != null && StringUtil.isNotEmpty(skuDto.get("price").toString())) {
@@ -459,7 +430,9 @@ public class BackendGoodsController extends BaseController {
             // 库存等于所有sku库存相加
             Integer allStock = 0;
             for (LinkedHashMap item : skuList) {
-                 allStock = allStock + Integer.parseInt(item.get("stock").toString());
+                 if (StringUtil.isNotEmpty(item.get("stock").toString())) {
+                     allStock = allStock + Integer.parseInt(item.get("stock").toString());
+                 }
             }
             stock = allStock.toString();
         }
@@ -483,7 +456,7 @@ public class BackendGoodsController extends BaseController {
         }
         mtGoods.setIsSingleSpec(isSingleSpec);
         if (StringUtil.isNotEmpty(stock)) {
-            mtGoods.setStock(Integer.parseInt(stock));
+            mtGoods.setStock(Double.parseDouble(stock));
         }
         if (StringUtil.isNotEmpty(description)) {
             mtGoods.setDescription(description);
@@ -762,6 +735,28 @@ public class BackendGoodsController extends BaseController {
         Map<String, Object> result = new HashMap();
         result.put("paginationResponse", paginationResponse);
         result.put("imagePath", imagePath);
+
+        return getSuccessResult(result);
+    }
+
+    /**
+     * 上传商品导入文件
+     *
+     * @param request
+     * @throws
+     */
+    @ApiOperation(value = "上传文件")
+    @RequestMapping(value = "/uploadGoodsFile", method = RequestMethod.POST)
+    @CrossOrigin
+    public ResponseObject uploadGoodsFile(HttpServletRequest request) throws Exception {
+        String token = request.getHeader("Access-Token");
+        AccountInfo accountInfo = TokenUtil.getAccountInfoByToken(token);
+
+        MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) request;
+        MultipartFile file = multipartRequest.getFile("file");
+
+        String filePath = goodsService.saveGoodsFile(request, file);
+        Boolean result = goodsService.importGoods(file, accountInfo, filePath);
 
         return getSuccessResult(result);
     }

@@ -1,5 +1,6 @@
 package com.fuint.common.service;
 
+import com.fuint.common.dto.AccountInfo;
 import com.fuint.common.dto.GoodsDto;
 import com.fuint.common.dto.GoodsSpecValueDto;
 import com.fuint.common.dto.GoodsTopDto;
@@ -9,6 +10,9 @@ import com.fuint.framework.pagination.PaginationResponse;
 import com.fuint.repository.model.MtGoods;
 import com.fuint.repository.model.MtGoodsSku;
 import com.fuint.repository.model.MtGoodsSpec;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.servlet.http.HttpServletRequest;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
@@ -37,6 +41,17 @@ public interface GoodsService {
      * @return
      */
     MtGoods saveGoods(MtGoods reqDto, String storeIds) throws BusinessCheckException;
+
+    /**
+     * 更新商品状态
+     *
+     * @param  goodsId 商品ID
+     * @param  status 状态
+     * @param  operator 操作人
+     * @throws BusinessCheckException
+     * @return
+     */
+    Boolean updateStatus(Integer goodsId, String status, String operator) throws BusinessCheckException;
 
     /**
      * 根据ID获取商品信息
@@ -76,16 +91,6 @@ public interface GoodsService {
     GoodsDto getGoodsDetail(Integer id, boolean getDeleteSpec) throws InvocationTargetException, IllegalAccessException;
 
     /**
-     * 根据ID删除
-     *
-     * @param  id 商品ID
-     * @param  operator 操作人
-     * @throws BusinessCheckException
-     * @return
-     */
-    void deleteGoods(Integer id, String operator) throws BusinessCheckException;
-
-    /**
      * 获取店铺的商品列表
      *
      * @param storeId 店铺ID
@@ -120,7 +125,7 @@ public interface GoodsService {
      * @param saleNum 销售数量
      * @return
      * */
-    Boolean updateInitSale(Integer goodsId, Integer saleNum);
+    Boolean updateInitSale(Integer goodsId, Double saleNum);
 
     /**
      * 获取选择商品列表
@@ -148,5 +153,31 @@ public interface GoodsService {
      * @return
      * */
     String getStoreIds(Integer goodsId);
+
+    /**
+     * 保存文件
+     *
+     * @param request
+     * @param file excel文件
+     * */
+    String saveGoodsFile(HttpServletRequest request, MultipartFile file) throws Exception;
+
+    /**
+     * 导入商品
+     *
+     * @param file excel文件
+     * @param accountInfo 操作者
+     * @param filePath 文件地址
+     * */
+    Boolean importGoods(MultipartFile file, AccountInfo accountInfo, String filePath) throws BusinessCheckException;
+
+    /**
+     * 获取规格ID
+     *
+     * @param goodsId 商品ID
+     * @param specName 规格名称
+     * @param specValue 规格值
+     * */
+    Integer getSpecId(Integer goodsId, String specName, String specValue);
 
 }
